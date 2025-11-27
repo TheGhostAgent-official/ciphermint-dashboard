@@ -1,56 +1,69 @@
+"use client";
+
+import React from "react";
 import type { Transaction } from "@/lib/ciphermintApi";
 
-type TransactionsTableProps = {
+type Props = {
   transactions: Transaction[];
+  loading: boolean;
 };
 
-export default function TransactionsTable({
-  transactions,
-}: TransactionsTableProps) {
+function shortenHash(hash: string): string {
+  if (!hash) return "";
+  if (hash.length <= 12) return hash;
+  return `${hash.slice(0, 6)}…${hash.slice(-6)}`;
+}
+
+function formatTimestamp(ts: string): string {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  return d.toLocaleString();
+}
+
+export default function TransactionsTable({ transactions, loading }: Props) {
   return (
     <div className="cm-card">
       <h2 className="cm-card-title">Recent Transactions</h2>
 
-      {transactions.length === 0 ? (
-        <p className="cm-helper" style={{ marginTop: 12 }}>
-          No recent transactions.
-        </p>
-      ) : (
-        <div className="cm-table-wrapper">
-          <table className="cm-table">
-            <thead>
-              <tr>
-                <th>Hash</th>
-                <th>Height</th>
-                <th>Time</th>
-                <th>Status</th>
+      {loading && transactions.length === 0 ? (
+        <p className="cm-info-text">Loading recent activity…</p>
+      ) : null}
+
+      {!loading && transactions.length === 0 ? (
+        <p className="cm-info-text">No transactions yet for this wallet.</p>
+      ) : null}
+
+      {transactions.length > 0 && (
+        <table className="cm-table">
+          <thead>
+            <tr>
+              <th>Hash</th>
+              <th>Height</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.map((tx) => (
+              <tr key={tx.hash}>
+                <td>{shortenHash(tx.hash)}</td>
+                <td>{tx.height}</td>
+                <td>{formatTimestamp(tx.timestamp)}</td>
+                <td>
+                  <span
+                    className={[
+                      "cm-status-pill",
+                      tx.success ? "cm-status-success" : "cm-status-failed",
+                    ].join(" ")}
+                  >
+                    {tx.status}
+                  </span>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {transactions.map((tx) => (
-                <tr key={tx.hash}>
-                  <td className="cm-hash">
-                    {tx.hash.slice(0, 10)}...
-                  </td>
-                  <td className="cm-hash">{tx.height}</td>
-                  <td>{new Date(tx.timestamp).toLocaleString()}</td>
-                  <td>
-                    <span
-                      className={[
-                        "cm-status-pill",
-                        tx.success
-                          ? "cm-status-success"
-                          : "cm-status-failed",
-                      ].join(" ")}
-                    >
-                      {tx.success ? "Success" : "Failed"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

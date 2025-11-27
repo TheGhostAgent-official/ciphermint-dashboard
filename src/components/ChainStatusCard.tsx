@@ -3,68 +3,55 @@
 import React from "react";
 import type { ChainStatus } from "@/lib/ciphermintApi";
 
-type ChainStatusCardProps = {
+type Props = {
   status: ChainStatus | null;
+  loading: boolean;
   error: string | null;
-  refreshing: boolean;
-  onRefresh: () => void;
+  onRefresh?: () => void;
 };
 
 export default function ChainStatusCard({
   status,
+  loading,
   error,
-  refreshing,
   onRefresh,
-}: ChainStatusCardProps) {
-  const effectiveHeight =
-    status?.latestBlockHeight ?? status?.latestHeight ?? 0;
-
+}: Props) {
   return (
-    <section className="cm-card">
+    <div className="cm-card">
       <div className="cm-card-header">
-        <h2 className="cm-card-title">Chain Status</h2>
-        <button
-          type="button"
-          className="cm-refresh-btn"
-          onClick={onRefresh}
-          disabled={refreshing}
-        >
-          {refreshing ? "Refreshing..." : "Refresh"}
-        </button>
+        <h2 className="cm-card-title">Chain Health</h2>
+        {onRefresh && (
+          <button
+            type="button"
+            className="cm-button-secondary cm-button-xs"
+            onClick={onRefresh}
+            disabled={loading}
+          >
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        )}
       </div>
 
       {error && <p className="cm-error">{error}</p>}
 
-      {!status && !error && (
-        <p className="cm-muted">No chain data loaded yet.</p>
+      {status ? (
+        <dl className="cm-status-grid">
+          <div className="cm-status-row">
+            <dt className="cm-status-label">Height</dt>
+            <dd className="cm-status-value">{status.latestHeight}</dd>
+          </div>
+          <div className="cm-status-row">
+            <dt className="cm-status-label">Latest Block Time</dt>
+            <dd className="cm-status-value">{status.latestBlockTime}</dd>
+          </div>
+          <div className="cm-status-row">
+            <dt className="cm-status-label">Node Version</dt>
+            <dd className="cm-status-value">{status.nodeVersion}</dd>
+          </div>
+        </dl>
+      ) : (
+        !error && <p className="cm-info-text">Loading chain status…</p>
       )}
-
-      {status && (
-        <div className="cm-status-grid">
-          <div className="cm-status-row">
-            <span className="cm-status-label">Chain ID</span>
-            <span className="cm-status-value">{status.chainId}</span>
-          </div>
-          <div className="cm-status-row">
-            <span className="cm-status-label">Height</span>
-            <span className="cm-status-value">
-              {effectiveHeight ? effectiveHeight.toLocaleString() : "—"}
-            </span>
-          </div>
-          <div className="cm-status-row">
-            <span className="cm-status-label">Latest Block Time</span>
-            <span className="cm-status-value">
-              {status.latestBlockTime
-                ? new Date(status.latestBlockTime).toLocaleString()
-                : "—"}
-            </span>
-          </div>
-          <div className="cm-status-row">
-            <span className="cm-status-label">Node Version</span>
-            <span className="cm-status-value">{status.nodeVersion}</span>
-          </div>
-        </div>
-      )}
-    </section>
+    </div>
   );
 }

@@ -50,10 +50,10 @@ export default function ChainPage() {
 
         <div className="cm-grid">
           <section>
-            <ChainStatusCard
+            <ChainStatusCard loading={loadingChain}
               status={chainStatus}
               error={null}
-              refreshing={loadingChain}
+              
               onRefresh={loadChainStatus}
             />
           </section>
