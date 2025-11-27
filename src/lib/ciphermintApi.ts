@@ -1,7 +1,7 @@
 export type ChainStatus = {
   chainId: string;
-  latestBlockHeight: number; // primary name
-  latestHeight: number;      // alias, for older components
+  latestBlockHeight: number; // primary
+  latestHeight: number;      // alias for older UI code
   latestBlockTime: string;
   nodeVersion: string;
 };
@@ -16,6 +16,7 @@ export type Transaction = {
   height: number;
   timestamp: string;
   status: "Success" | "Failed" | "Pending";
+  success: boolean; // boolean alias used by UI (tx.success)
 };
 
 export const DEMO_MODE =
@@ -29,7 +30,6 @@ const API_BASE =
 
 /**
  * DEMO DATA
- * This is what investors see when demo mode is enabled.
  */
 const DEMO_CHAIN_STATUS: ChainStatus = {
   chainId: "ciphermint-demo-1",
@@ -50,17 +50,19 @@ const DEMO_TRANSACTIONS: Transaction[] = [
     height: 18235,
     timestamp: "2025-11-26T11:14:10Z",
     status: "Success",
+    success: true,
   },
   {
     hash: "B9E0DEMO0987654321FEDCBA",
     height: 18210,
     timestamp: "2025-11-26T10:39:10Z",
     status: "Success",
+    success: true,
   },
 ];
 
 /**
- * In DEMO_MODE we NEVER call the real API.
+ * In DEMO_MODE we NEVER call a real API.
  */
 
 export async function fetchChainStatus(): Promise<ChainStatus> {
@@ -116,7 +118,7 @@ export async function fetchRecentTransactions(
     return DEMO_TRANSACTIONS;
   }
 
-  // Endpoint can be refined when we plug into the live chain.
+  // When we hook up the real chain, we can refine this query.
   const res = await fetch(
     `${API_BASE}/txs?message.sender=${encodeURIComponent(address)}`
   );
@@ -126,12 +128,16 @@ export async function fetchRecentTransactions(
   const data = await res.json();
 
   const txs: Transaction[] =
-    data?.txs?.map((tx: any) => ({
-      hash: tx.txhash,
-      height: Number(tx.height ?? 0),
-      timestamp: tx.timestamp ?? "",
-      status: tx.code === 0 ? "Success" : "Failed",
-    })) ?? [];
+    data?.txs?.map((tx: any) => {
+      const ok = tx.code === 0;
+      return {
+        hash: tx.txhash,
+        height: Number(tx.height ?? 0),
+        timestamp: tx.timestamp ?? "",
+        status: ok ? "Success" : "Failed",
+        success: ok,
+      };
+    }) ?? [];
 
   return txs;
 }
