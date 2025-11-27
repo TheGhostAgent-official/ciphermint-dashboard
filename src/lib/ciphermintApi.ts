@@ -1,179 +1,133 @@
+export type ChainStatus = {
+  chainId: string;
+  latestBlockHeight: number;
+  latestBlockTime: string;
+  nodeVersion: string;
+};
+
 export type Coin = {
   denom: string;
   amount: string;
 };
 
-export type BalanceResponse = {
-  balances: Coin[];
-};
-
-export type ChainStatus = {
-  chainId: string;
-  latestHeight: string;
-  latestTime: string;
-};
-
 export type Transaction = {
   hash: string;
-  height: string;
+  height: number;
   timestamp: string;
-  success: boolean;
+  status: "Success" | "Failed" | "Pending";
 };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_CIPHERMINT_API_BASE_URL || "http://localhost:1317";
-
-const DEMO_MODE =
+export const DEMO_MODE =
   process.env.NEXT_PUBLIC_CIPHERMINT_DEMO_MODE === "true";
 
+export const DEMO_ADDRESS = "ciphermint1demoaddressxyz";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_CIPHERMINT_API_BASE_URL ||
+  "http://localhost:1317";
+
 /**
- * ---- DEMO DATA ----
- * Used when DEMO_MODE=true so you can show investors
- * a working UI even if the node is offline.
+ * DEMO DATA
+ * This is what investors will see when demo mode is enabled.
  */
-const DEMO_ADDRESS = "ciphermint1demoaddressxyz";
+const DEMO_CHAIN_STATUS: ChainStatus = {
+  chainId: "ciphermint-demo-1",
+  latestBlockHeight: 18235,
+  latestBlockTime: "2025-11-26T11:14:10Z",
+  nodeVersion: "CipherMintd demo-node v0.1.0",
+};
 
 const DEMO_BALANCES: Coin[] = [
   { denom: "ucmint", amount: "125000000" },
   { denom: "urackd", amount: "84500000" },
 ];
 
-const DEMO_CHAIN_STATUS: ChainStatus = {
-  chainId: "ciphermint-local-1",
-  latestHeight: "18240",
-  latestTime: new Date().toISOString(),
-};
-
-const DEMO_TXS: Transaction[] = [
+const DEMO_TRANSACTIONS: Transaction[] = [
   {
-    hash: "A2F4F1DEMO123456789",
-    height: "18235",
-    timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
-    success: true,
+    hash: "A2F4F1DEMO1234567890ABCDEF",
+    height: 18235,
+    timestamp: "2025-11-26T11:14:10Z",
+    status: "Success",
   },
   {
-    hash: "B7C9E0DEMO987654321",
-    height: "18210",
-    timestamp: new Date(Date.now() - 1000 * 60 * 55).toISOString(),
-    success: true,
+    hash: "B9E0DEMO0987654321FEDCBA",
+    height: 18210,
+    timestamp: "2025-11-26T10:39:10Z",
+    status: "Success",
   },
 ];
 
-async function httpGet<T>(path: string): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
+/**
+ * In DEMO_MODE we NEVER call the real API.
+ * Vercel just serves these static objects so the UI always works.
+ */
 
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(
-      `HTTP ${res.status} when calling ${url}: ${text || "No response body"}`
-    );
+export async function fetchChainStatus(): Promise<ChainStatus> {
+  if (DEMO_MODE) {
+    return DEMO_CHAIN_STATUS;
   }
 
-  return (await res.json()) as T;
+  const res = await fetch(`${API_BASE}/status`);
+  if (!res.ok) {
+    throw new Error("Failed to fetch chain status from API");
+  }
+  const data = await res.json();
+
+  return {
+    chainId: data?.node_info?.network ?? "unknown",
+    latestBlockHeight: Number(data?.sync_info?.latest_block_height ?? 0),
+    latestBlockTime: data?.sync_info?.latest_block_time ?? "",
+    nodeVersion: data?.node_info?.version ?? "unknown",
+  };
 }
 
-/**
- * Get all balances for a given CipherMint address.
- *
- * Cosmos REST: /cosmos/bank/v1beta1/balances/{address}
- */
-export async function fetchBalances(address: string): Promise<BalanceResponse> {
+export async function fetchBalances(
+  address: string
+): Promise<{ balances: Coin[] }> {
   if (DEMO_MODE) {
     return { balances: DEMO_BALANCES };
   }
 
-  if (!address) {
-    throw new Error("Address is required");
-  }
-
-  const data = await httpGet<{ balances: Coin[] }>(
-    `/cosmos/bank/v1beta1/balances/${address}`
+  const res = await fetch(
+    `${API_BASE}/cosmos/bank/v1beta1/balances/${address}`
   );
-
-  return {
-    balances: data.balances || [],
-  };
-}
-
-/**
- * Get latest chain status (height, time, chain ID) using Tendermint REST.
- *
- * Cosmos REST: /cosmos/base/tendermint/v1beta1/blocks/latest
- */
-export async function fetchChainStatus(): Promise<ChainStatus> {
-  if (DEMO_MODE) {
-    return {
-      ...DEMO_CHAIN_STATUS,
-      latestTime: new Date().toISOString(),
-    };
+  if (!res.ok) {
+    throw new Error("Failed to fetch balances from API");
   }
+  const data = await res.json();
 
-  const data = await httpGet<{
-    block_id: { hash: string };
-    block: {
-      header: {
-        chain_id: string;
-        height: string;
-        time: string;
-      };
-    };
-  }>(`/cosmos/base/tendermint/v1beta1/blocks/latest`);
+  const balances: Coin[] =
+    data?.balances?.map((b: any) => ({
+      denom: b.denom,
+      amount: b.amount,
+    })) ?? [];
 
-  const chainId = data.block.header.chain_id;
-  const latestHeight = data.block.header.height;
-  const latestTime = data.block.header.time;
-
-  return {
-    chainId,
-    latestHeight,
-    latestTime,
-  };
+  return { balances };
 }
 
-/**
- * Fetch recent transactions involving an address.
- *
- * Cosmos v1beta1 tx search using events.
- */
 export async function fetchRecentTransactions(
-  address: string,
-  limit: number = 20
+  address: string
 ): Promise<Transaction[]> {
   if (DEMO_MODE) {
-    return DEMO_TXS;
+    return DEMO_TRANSACTIONS;
   }
 
-  if (!address) {
-    throw new Error("Address is required");
+  // This endpoint may change depending on your chain; adjust later for real mode.
+  const res = await fetch(
+    `${API_BASE}/txs?message.sender=${encodeURIComponent(address)}`
+  );
+  if (!res.ok) {
+    throw new Error("Failed to fetch transactions from API");
   }
+  const data = await res.json();
 
-  const query = encodeURIComponent(`message.sender='${address}'`);
-  const path = `/cosmos/tx/v1beta1/txs?events=${query}&order_by=ORDER_BY_DESC&limit=${limit}`;
+  const txs: Transaction[] =
+    data?.txs?.map((tx: any) => ({
+      hash: tx.txhash,
+      height: Number(tx.height ?? 0),
+      timestamp: tx.timestamp ?? "",
+      status: tx.code === 0 ? "Success" : "Failed",
+    })) ?? [];
 
-  const data = await httpGet<{
-    tx_responses?: Array<{
-      txhash: string;
-      height: string;
-      timestamp: string;
-      code: number;
-    }>;
-  }>(path);
-
-  const txs = data.tx_responses || [];
-
-  return txs.map((tx) => ({
-    hash: tx.txhash,
-    height: tx.height,
-    timestamp: tx.timestamp,
-    success: tx.code === 0,
-  }));
+  return txs;
 }
-
-export { DEMO_ADDRESS, DEMO_MODE };
