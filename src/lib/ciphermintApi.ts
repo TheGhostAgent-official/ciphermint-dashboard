@@ -1,6 +1,7 @@
 export type ChainStatus = {
   chainId: string;
-  latestBlockHeight: number;
+  latestBlockHeight: number; // primary name
+  latestHeight: number;      // alias, for older components
   latestBlockTime: string;
   nodeVersion: string;
 };
@@ -28,11 +29,12 @@ const API_BASE =
 
 /**
  * DEMO DATA
- * This is what investors will see when demo mode is enabled.
+ * This is what investors see when demo mode is enabled.
  */
 const DEMO_CHAIN_STATUS: ChainStatus = {
   chainId: "ciphermint-demo-1",
   latestBlockHeight: 18235,
+  latestHeight: 18235,
   latestBlockTime: "2025-11-26T11:14:10Z",
   nodeVersion: "CipherMintd demo-node v0.1.0",
 };
@@ -59,7 +61,6 @@ const DEMO_TRANSACTIONS: Transaction[] = [
 
 /**
  * In DEMO_MODE we NEVER call the real API.
- * Vercel just serves these static objects so the UI always works.
  */
 
 export async function fetchChainStatus(): Promise<ChainStatus> {
@@ -73,9 +74,12 @@ export async function fetchChainStatus(): Promise<ChainStatus> {
   }
   const data = await res.json();
 
+  const heightNum = Number(data?.sync_info?.latest_block_height ?? 0);
+
   return {
     chainId: data?.node_info?.network ?? "unknown",
-    latestBlockHeight: Number(data?.sync_info?.latest_block_height ?? 0),
+    latestBlockHeight: heightNum,
+    latestHeight: heightNum,
     latestBlockTime: data?.sync_info?.latest_block_time ?? "",
     nodeVersion: data?.node_info?.version ?? "unknown",
   };
@@ -112,7 +116,7 @@ export async function fetchRecentTransactions(
     return DEMO_TRANSACTIONS;
   }
 
-  // This endpoint may change depending on your chain; adjust later for real mode.
+  // Endpoint can be refined when we plug into the live chain.
   const res = await fetch(
     `${API_BASE}/txs?message.sender=${encodeURIComponent(address)}`
   );

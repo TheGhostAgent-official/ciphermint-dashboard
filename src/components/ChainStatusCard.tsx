@@ -16,6 +16,9 @@ export default function ChainStatusCard({
   refreshing,
   onRefresh,
 }: ChainStatusCardProps) {
+  const effectiveHeight =
+    status?.latestBlockHeight ?? status?.latestHeight ?? 0;
+
   return (
     <section className="cm-card">
       <div className="cm-card-header">
@@ -45,7 +48,7 @@ export default function ChainStatusCard({
           <div className="cm-status-row">
             <span className="cm-status-label">Height</span>
             <span className="cm-status-value">
-              {status.latestBlockHeight.toLocaleString()}
+              {effectiveHeight ? effectiveHeight.toLocaleString() : "—"}
             </span>
           </div>
           <div className="cm-status-row">
