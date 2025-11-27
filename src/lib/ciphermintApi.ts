@@ -16,20 +16,51 @@ export type Transaction = {
   height: number;
   timestamp: string;
   status: "Success" | "Failed" | "Pending";
-  success: boolean; // boolean alias used by UI (tx.success)
+  success: boolean;
+};
+
+export type DemoWallet = {
+  id: string;
+  label: string;
+  address: string;
+  description?: string;
 };
 
 export const DEMO_MODE =
   process.env.NEXT_PUBLIC_CIPHERMINT_DEMO_MODE === "true";
 
-export const DEMO_ADDRESS = "ciphermint1demoaddressxyz";
+/**
+ * Demo wallets that appear in the UI.
+ */
+export const DEMO_WALLETS: DemoWallet[] = [
+  {
+    id: "primary",
+    label: "Main CipherMint Wallet",
+    address: "ciphermint1demoaddressxyz",
+    description: "Primary wallet for ecosystem activity.",
+  },
+  {
+    id: "gamer",
+    label: "Gamer Earnings Wallet",
+    address: "ciphermint1gamerxyz000001",
+    description: "In-game rewards and drops.",
+  },
+  {
+    id: "creator",
+    label: "Creator Royalty Wallet",
+    address: "ciphermint1creatorxyz0001",
+    description: "Payouts from creator economies.",
+  },
+];
+
+export const DEMO_ADDRESS = DEMO_WALLETS[0].address;
 
 const API_BASE =
   process.env.NEXT_PUBLIC_CIPHERMINT_API_BASE_URL ||
   "http://localhost:1317";
 
 /**
- * DEMO DATA
+ * Demo chain status (shared for all wallets in demo mode).
  */
 const DEMO_CHAIN_STATUS: ChainStatus = {
   chainId: "ciphermint-demo-1",
@@ -39,27 +70,88 @@ const DEMO_CHAIN_STATUS: ChainStatus = {
   nodeVersion: "CipherMintd demo-node v0.1.0",
 };
 
-const DEMO_BALANCES: Coin[] = [
-  { denom: "ucmint", amount: "125000000" },
-  { denom: "urackd", amount: "84500000" },
-];
+/**
+ * Per-wallet demo balances.
+ * Amounts are in "micro" units (e.g. ucmint => divide by 1e6 for display).
+ */
+const DEMO_BALANCES_BY_ADDRESS: Record<string, Coin[]> = {
+  [DEMO_WALLETS[0].address]: [
+    { denom: "ucmint", amount: "125000000" }, // 125 CMINT
+    { denom: "urackd", amount: "84500000" },  // 84.5 RACKD
+    { denom: "ugame", amount: "56000000" },   // 56 GAME
+  ],
+  [DEMO_WALLETS[1].address]: [
+    { denom: "ucmint", amount: "42000000" },
+    { denom: "urackd", amount: "125000000" },
+    { denom: "uxp", amount: "230000000" }, // XP-like token
+  ],
+  [DEMO_WALLETS[2].address]: [
+    { denom: "ucmint", amount: "220000000" },
+    { denom: "urackd", amount: "32000000" },
+    { denom: "uroyal", amount: "99000000" }, // royalties
+  ],
+};
 
-const DEMO_TRANSACTIONS: Transaction[] = [
-  {
-    hash: "A2F4F1DEMO1234567890ABCDEF",
-    height: 18235,
-    timestamp: "2025-11-26T11:14:10Z",
-    status: "Success",
-    success: true,
-  },
-  {
-    hash: "B9E0DEMO0987654321FEDCBA",
-    height: 18210,
-    timestamp: "2025-11-26T10:39:10Z",
-    status: "Success",
-    success: true,
-  },
-];
+/**
+ * Per-wallet demo transactions.
+ */
+const DEMO_TX_BY_ADDRESS: Record<string, Transaction[]> = {
+  [DEMO_WALLETS[0].address]: [
+    {
+      hash: "A2F4F1DEMO1234567890ABCDEF",
+      height: 18235,
+      timestamp: "2025-11-26T11:14:10Z",
+      status: "Success",
+      success: true,
+    },
+    {
+      hash: "B9E0DEMO0987654321FEDCBA",
+      height: 18210,
+      timestamp: "2025-11-26T10:39:10Z",
+      status: "Success",
+      success: true,
+    },
+    {
+      hash: "C7D9DEMOFF00112233445566",
+      height: 18180,
+      timestamp: "2025-11-26T09:58:10Z",
+      status: "Failed",
+      success: false,
+    },
+  ],
+  [DEMO_WALLETS[1].address]: [
+    {
+      hash: "GAMERDEMO1122334455667788",
+      height: 18200,
+      timestamp: "2025-11-25T21:14:10Z",
+      status: "Success",
+      success: true,
+    },
+    {
+      hash: "GAMERDROP9988776655443322",
+      height: 18170,
+      timestamp: "2025-11-25T20:01:10Z",
+      status: "Success",
+      success: true,
+    },
+  ],
+  [DEMO_WALLETS[2].address]: [
+    {
+      hash: "CRE8PAY0000111122223333",
+      height: 18100,
+      timestamp: "2025-11-24T15:14:10Z",
+      status: "Success",
+      success: true,
+    },
+    {
+      hash: "CRE8FAIL9999888877776666",
+      height: 18090,
+      timestamp: "2025-11-24T14:55:10Z",
+      status: "Failed",
+      success: false,
+    },
+  ],
+};
 
 /**
  * In DEMO_MODE we NEVER call a real API.
@@ -91,7 +183,10 @@ export async function fetchBalances(
   address: string
 ): Promise<{ balances: Coin[] }> {
   if (DEMO_MODE) {
-    return { balances: DEMO_BALANCES };
+    const balances =
+      DEMO_BALANCES_BY_ADDRESS[address] ??
+      DEMO_BALANCES_BY_ADDRESS[DEMO_WALLETS[0].address];
+    return { balances };
   }
 
   const res = await fetch(
@@ -115,10 +210,9 @@ export async function fetchRecentTransactions(
   address: string
 ): Promise<Transaction[]> {
   if (DEMO_MODE) {
-    return DEMO_TRANSACTIONS;
+    return DEMO_TX_BY_ADDRESS[address] ?? [];
   }
 
-  // When we hook up the real chain, we can refine this query.
   const res = await fetch(
     `${API_BASE}/txs?message.sender=${encodeURIComponent(address)}`
   );
